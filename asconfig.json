@@ -1,0 +1,6 @@
+{
+    "workspaces": [
+        "src/aita-ft"
+    ],
+    "outDir": "build"
+}

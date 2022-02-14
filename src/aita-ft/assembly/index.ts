@@ -12,7 +12,7 @@ export function init(initialOwner: string): void {
     storage.set('init', 'done');
 }
 
-export function totalSupply() {
+export function totalSupply(): string {
     return TOTAL_SUPPLY.toString();
 }
 
@@ -25,7 +25,7 @@ export function balanceOf(tokenOwner: string): u64 {
 }
 
 export function allowance(tokenOwner: string, spender: string): u64 {
-    const key = `${tokenOwner}${spender}`;
+    const key = `${tokenOwner}:${spender}`;
     if (!approves.contains(key)) {
         return 0;
     }

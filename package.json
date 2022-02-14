@@ -3,7 +3,13 @@
   "version": "0.0.1",
   "description": "AITA game token contract",
   "scripts": {
-    "test": "npm run test"
+    "build": "yarn build:contract:debug",
+    "build:contract": "asb",
+    "build:contract:debug": "asb --target debug",
+    "clean": "rm -rf ./out",
+    "test": "yarn test:unit",
+    "test:unit": "asp --verbose -f unit.spec",
+    "test:simulate:vm": "yarn near-vm"
   },
   "author": "aita",
   "license": "ISC",

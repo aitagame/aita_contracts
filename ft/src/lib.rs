@@ -53,6 +53,22 @@ impl Contract {
         this
     }
 
+    #[payable]
+    pub fn ft_purchase_for_self(&mut self, buyer_account_id: AccountId) {
+        let current_account_id = near_sdk::env::current_account_id();
+        let attached_deposit = near_sdk::env::attached_deposit();
+
+        if !self.token.accounts.contains_key(&buyer_account_id) {
+            self.token.internal_register_account(&buyer_account_id);
+        }
+        self.token.internal_transfer(
+            &current_account_id,
+            &buyer_account_id,
+            attached_deposit,
+            None,
+        )
+    }
+
     fn on_account_closed(&mut self, account_id: AccountId, balance: Balance) {
         log!("Closed @{} with {}", account_id, balance);
     }

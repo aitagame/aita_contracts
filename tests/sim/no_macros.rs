@@ -3,6 +3,7 @@ use near_sdk::serde_json::json;
 use near_sdk_sim::{to_yocto, DEFAULT_GAS};
 
 use crate::utils::init_no_macros as init;
+use crate::utils::register_user as register_user;
 
 #[test]
 fn simulate_total_supply() {
@@ -59,4 +60,66 @@ fn simulate_simple_transfer() {
         .unwrap_json();
     assert_eq!(initial_balance - transfer_amount, root_balance.0);
     assert_eq!(transfer_amount, alice_balance.0);
+}
+
+#[test]
+fn simulate_tokens_purchase() {
+    let deposit_amount = to_yocto("100");
+    let purchase_amount = to_yocto("100");
+    let initial_balance = to_yocto("100000");
+    let (root, ft, alice) = init(initial_balance);
+
+    register_user(&ft);
+    // Transfer from root to ft (contract balance).
+    root.call(
+        ft.account_id(),
+        "ft_transfer",
+        &json!({
+            "receiver_id": ft.valid_account_id(),
+            "amount": U128::from(deposit_amount)
+        })
+        .to_string()
+        .into_bytes(),
+        DEFAULT_GAS,
+        1, // deposit
+    )
+    .assert_success();
+
+    root.call(
+        ft.account_id(),
+        "ft_purchase_for_self",
+        &json!({
+            "buyer_account_id": alice.account_id()
+        })
+        .to_string()
+        .into_bytes(),
+        DEFAULT_GAS,
+        deposit_amount,
+    )
+    .assert_success();
+
+    let root_balance: U128 = root
+        .view(
+            ft.account_id(),
+            "ft_balance_of",
+            &json!({
+                "account_id": root.valid_account_id()
+            })
+            .to_string()
+            .into_bytes(),
+        )
+        .unwrap_json();
+    let alice_balance: U128 = alice
+        .view(
+            ft.account_id(),
+            "ft_balance_of",
+            &json!({
+                "account_id": alice.valid_account_id()
+            })
+            .to_string()
+            .into_bytes(),
+        )
+        .unwrap_json();
+    assert_eq!(initial_balance - purchase_amount, root_balance.0);
+    assert_eq!(purchase_amount, alice_balance.0);
 }

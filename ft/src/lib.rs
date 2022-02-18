@@ -20,7 +20,7 @@ pub struct Contract {
 impl Contract {
     #[init]
     pub fn new_default_meta(owner_id: ValidAccountId, total_supply: U128) -> Self {
-        let aita_icon_svg = include_str!("aita_icon.svg");
+        let aita_icon = include_str!("aita_icon.png.dat");
         Self::new(
             owner_id,
             total_supply,
@@ -28,7 +28,7 @@ impl Contract {
                 spec: FT_METADATA_SPEC.to_string(),
                 name: "AITA Game Dark Crystal".to_string(),
                 symbol: "AITA".to_string(),
-                icon: Some(aita_icon_svg.to_string()),
+                icon: Some(aita_icon.to_string()),
                 reference: None,
                 reference_hash: None,
                 decimals: 24,

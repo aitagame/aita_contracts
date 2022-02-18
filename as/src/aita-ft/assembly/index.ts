@@ -1,15 +1,24 @@
-import { context, storage, logging, PersistentMap } from 'near-sdk-as';
+import { context, storage, PersistentMap } from 'near-sdk-as';
+import { FTContractMetadata } from './metadata';
 
 const balances = new PersistentMap<string, u64>('b:');
 const approves = new PersistentMap<string, u64>('a:');
 
+const INIT_KEY = 'init';
+const VERSION_KEY = 'version';
+const METADATA_KEY = 'contract_metadata';
+
+const CURRENT_VERSION = 'v3';
 const TOTAL_SUPPLY: u64 = 1000000;
 
 export function init(initialOwner: string): void {
-    logging.log(`initialOwner: ${initialOwner}`);
-    assert(storage.get<string>('init') === null, 'Token totalSupply already initialized');
-    balances.set(initialOwner, TOTAL_SUPPLY);
-    storage.set('init', 'done');
+    assert(storage.get<string>(VERSION_KEY) !== CURRENT_VERSION, `Token version ${CURRENT_VERSION} already initialized`);
+    if (!storage.contains(INIT_KEY)) {
+        balances.set(initialOwner, TOTAL_SUPPLY);
+        storage.set(INIT_KEY, 'done');
+    }
+    storage.set(METADATA_KEY, new FTContractMetadata());
+    storage.set(VERSION_KEY, CURRENT_VERSION);
 }
 
 export function totalSupply(): string {
@@ -17,7 +26,6 @@ export function totalSupply(): string {
 }
 
 export function balanceOf(tokenOwner: string): u64 {
-    logging.log(`balanceOf: ${tokenOwner}`);
     if (!balances.contains(tokenOwner)) {
         return 0;
     }
@@ -33,7 +41,6 @@ export function allowance(tokenOwner: string, spender: string): u64 {
 }
 
 export function transfer(to: string, tokens: u64): boolean {
-    logging.log(`transfer from ${context.sender} to ${to} tokens ${tokens}`);
     const fromBalance = getBalance(context.sender);
     assert(fromBalance >= tokens, 'not enough tokens on account');
     balances.set(context.sender, fromBalance - tokens);
@@ -42,7 +49,6 @@ export function transfer(to: string, tokens: u64): boolean {
 }
 
 export function approve(spender: string, tokens: u64): boolean {
-    logging.log(`approve spender: ${spender} tokens ${tokens.toString()}`);
     approves.set(`${context.sender}:${spender}`, tokens);
     return true;
 }
@@ -55,6 +61,10 @@ export function transferFrom(from: string, to: string, tokens: u64): boolean {
     balances.set(from, fromBalance - tokens);
     balances.set(to, getBalance(to) + tokens);
     return true;
+}
+
+export function ft_metadata(): FTContractMetadata {
+    return storage.getSome<FTContractMetadata>(METADATA_KEY)
 }
 
 function getBalance(owner: string): u64 {

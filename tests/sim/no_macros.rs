@@ -3,7 +3,7 @@ use near_sdk::serde_json::json;
 use near_sdk_sim::{to_yocto, DEFAULT_GAS};
 
 use crate::utils::init_no_macros as init;
-use crate::utils::register_user as register_user;
+use crate::utils::register_user;
 
 #[test]
 fn simulate_total_supply() {
@@ -67,6 +67,7 @@ fn simulate_tokens_purchase() {
     let deposit_amount = to_yocto("100");
     let purchase_amount = to_yocto("100");
     let initial_balance = to_yocto("100000");
+    let insufficient_amount = to_yocto("0.01");
     let (root, ft, alice) = init(initial_balance);
 
     register_user(&ft);
@@ -76,7 +77,7 @@ fn simulate_tokens_purchase() {
         "ft_transfer",
         &json!({
             "receiver_id": ft.valid_account_id(),
-            "amount": U128::from(deposit_amount)
+            "amount": U128::from(deposit_amount * 2)
         })
         .to_string()
         .into_bytes(),
@@ -85,9 +86,10 @@ fn simulate_tokens_purchase() {
     )
     .assert_success();
 
+    //Buy for different account
     root.call(
         ft.account_id(),
-        "ft_purchase_for_self",
+        "ft_purchase",
         &json!({
             "buyer_account_id": alice.account_id()
         })
@@ -98,7 +100,51 @@ fn simulate_tokens_purchase() {
     )
     .assert_success();
 
-    let root_balance: U128 = root
+    //This try should fail because of insufficient amount
+    assert!(
+        !root
+            .call(
+                ft.account_id(),
+                "ft_purchase",
+                &json!({
+                    "buyer_account_id": alice.account_id()
+                })
+                .to_string()
+                .into_bytes(),
+                DEFAULT_GAS,
+                insufficient_amount,
+            )
+            .is_ok(),
+        "Should not allow amounts < 1 NEAR"
+    );
+
+    let root_balance_before: U128 = root
+        .view(
+            ft.account_id(),
+            "ft_balance_of",
+            &json!({
+                "account_id": root.valid_account_id()
+            })
+            .to_string()
+            .into_bytes(),
+        )
+        .unwrap_json();
+
+    //Buy for self
+    root.call(
+        ft.account_id(),
+        "ft_purchase",
+        &json!({
+            "buyer_account_id": root.account_id()
+        })
+        .to_string()
+        .into_bytes(),
+        DEFAULT_GAS,
+        deposit_amount,
+    )
+    .assert_success();
+
+    let root_balance_after: U128 = root
         .view(
             ft.account_id(),
             "ft_balance_of",
@@ -120,6 +166,7 @@ fn simulate_tokens_purchase() {
             .into_bytes(),
         )
         .unwrap_json();
-    assert_eq!(initial_balance - purchase_amount, root_balance.0);
+    assert_eq!(initial_balance - purchase_amount * 2, root_balance_before.0);
+    assert_eq!(initial_balance - purchase_amount, root_balance_after.0);
     assert_eq!(purchase_amount, alice_balance.0);
 }

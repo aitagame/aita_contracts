@@ -55,12 +55,20 @@ impl Contract {
         this
     }
 
+    //Verify if contract as functionable. Analog of ping endpoint
+    pub fn hello(&self, name: String) ->String {
+        return format!("Hello {}", name);
+    }
+
     #[payable]
     pub fn ft_purchase(&mut self, buyer_account_id: AccountId) {
         let current_account_id = near_sdk::env::current_account_id();
         let attached_deposit = near_sdk::env::attached_deposit();
 
-        assert!(attached_deposit >= MIN_PURCHASE_QUANTITY, "Deposit should be not less then 1 near");
+        assert!(
+            attached_deposit >= MIN_PURCHASE_QUANTITY,
+            "Deposit should be not less then 1 near"
+        );
 
         if !self.token.accounts.contains_key(&buyer_account_id) {
             self.token.internal_register_account(&buyer_account_id);

@@ -6,6 +6,26 @@ use crate::utils::init_no_macros as init;
 use crate::utils::register_user;
 
 #[test]
+fn simulate_contract_functionable() {
+    let initial_balance = to_yocto("100");
+    let (root, ft, _) = init(initial_balance);
+
+    let resp: String = root
+        .view(
+            ft.account_id(),
+            "hello",
+            &json!({
+                "name": "test"
+            })
+            .to_string()
+            .into_bytes(),
+        )
+        .unwrap_json();
+
+    assert_eq!(resp, format!("Hello test"));
+}
+
+#[test]
 fn simulate_total_supply() {
     let initial_balance = to_yocto("100");
     let (_, ft, _) = init(initial_balance);

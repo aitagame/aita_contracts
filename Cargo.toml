@@ -1,7 +1,7 @@
 [package]
 name = "fungible-token-wrapper"
 version = "0.0.1"
-authors = ["Near Inc <hello@near.org>"]
+authors = ["ITracers <muhametshin.1997@gmail.com>"]
 edition = "2018"
 
 [dev-dependencies]
@@ -10,6 +10,7 @@ near-sdk-sim = "3.1.1"
 
 # remember to include a line for each contract
 fungible-token = { path = "./ft" }
+non-fungible-token = { path = "./nft" }
 defi = { path = "./defi" }
 
 [profile.release]
@@ -25,5 +26,6 @@ overflow-checks = true
 # remember to include a member for each contract
 members = [
   "ft",
+  "nft",
   "defi",
 ]

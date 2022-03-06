@@ -1,5 +1,5 @@
 [package]
-name = "defi"
+name = "non-fungible-token"
 version = "1.0.0"
 authors = ["ITracers <muhametshin.1997@gmail.com>"]
 edition = "2018"

@@ -1,5 +1,5 @@
 use near_contract_standards::non_fungible_token::metadata::{
-    NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
+    NFTContractMetadata, NonFungibleTokenMetadataProvider, TokenMetadata, NFT_METADATA_SPEC,
 };
 use near_contract_standards::non_fungible_token::{NonFungibleToken, Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
@@ -37,8 +37,8 @@ impl Contract {
             owner_id,
             NFTContractMetadata {
                 spec: NFT_METADATA_SPEC.to_string(),
-                name: "Dark Crystal NFT".to_string(),
-                symbol: "DCNFT".to_string(),
+                name: "AITA Game NFT".to_string(),
+                symbol: "AITANFT".to_string(),
                 icon: Some(aita_icon.to_string()),
                 base_uri: None,
                 reference: None,
@@ -67,13 +67,20 @@ impl Contract {
     pub fn nft_mint(
         &mut self,
         token_id: TokenId,
-        receiver: ValidAccountId,
-        metadata: TokenMetadata,
+        receiver_id: ValidAccountId,
+        token_metadata: TokenMetadata,
     ) -> Token {
-        self.tokens.mint(token_id, receiver, Some(metadata))
+        self.tokens.mint(token_id, receiver_id, Some(token_metadata))
     }
 }
 
 near_contract_standards::impl_non_fungible_token_core!(Contract, tokens);
 near_contract_standards::impl_non_fungible_token_approval!(Contract, tokens);
 near_contract_standards::impl_non_fungible_token_enumeration!(Contract, tokens);
+
+#[near_bindgen]
+impl NonFungibleTokenMetadataProvider for Contract {
+    fn nft_metadata(&self) -> NFTContractMetadata {
+        self.metadata.get().unwrap()
+    }
+}

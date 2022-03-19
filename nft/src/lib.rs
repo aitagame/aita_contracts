@@ -6,7 +6,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, UnorderedSet};
 use near_sdk::json_types::ValidAccountId;
 use near_sdk::{
-    env, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue,
+    env, ext_contract, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault, Promise,
+    PromiseOrValue,
 };
 
 near_sdk::setup_alloc!();
@@ -92,11 +93,14 @@ impl Contract {
     pub fn nft_mint_purchase(
         &mut self,
         token_id: TokenId,
-        token_owner_id: AccountId,
+        receiver_id: &AccountId,
         token_metadata: Option<TokenMetadata>,
-        refund_id: Option<AccountId>,
-    ) -> Token {
-        let initial_storage_usage = refund_id.map(|account_id| (account_id, env::storage_usage()));
+    ) {
+        let current_account_id = env::current_account_id();
+        let predecessor_account_id = Some(env::predecessor_account_id());
+
+        let initial_storage_usage =
+            predecessor_account_id.map(|account_id| (account_id, env::storage_usage()));
 
         if token_metadata.is_none() {
             env::panic("Must provide metadata".as_ref());
@@ -104,11 +108,8 @@ impl Contract {
         if self.tokens.owner_by_id.get(&token_id).is_some() {
             env::panic("token_id must be unique".as_ref());
         }
-        let attached_deposit = near_sdk::env::attached_deposit();
 
-        let owner_id: AccountId = token_owner_id;
-
-        self.tokens.owner_by_id.insert(&token_id, &owner_id);
+        self.tokens.owner_by_id.insert(&token_id, &current_account_id);
 
         self.tokens
             .token_metadata_by_id
@@ -116,29 +117,42 @@ impl Contract {
             .and_then(|by_id| by_id.insert(&token_id, token_metadata.as_ref().unwrap()));
 
         if let Some(tokens_per_owner) = &mut self.tokens.tokens_per_owner {
-            let mut token_ids = tokens_per_owner.get(&owner_id).unwrap_or_else(|| {
+            let mut token_ids = tokens_per_owner.get(&current_account_id).unwrap_or_else(|| {
                 UnorderedSet::new(StorageKey::TokensPerOwner {
-                    account_hash: env::sha256(owner_id.as_bytes()),
+                    account_hash: env::sha256(current_account_id.as_bytes()),
                 })
             });
             token_ids.insert(&token_id);
-            tokens_per_owner.insert(&owner_id, &token_ids);
+            tokens_per_owner.insert(&current_account_id, &token_ids);
         }
 
-        let approved_account_ids =
-            if self.tokens.approvals_by_id.is_some() { Some(HashMap::new()) } else { None };
-
         if let Some((id, storage_usage)) = initial_storage_usage {
-            assert!(
-                Balance::from(storage_usage) >= Balance::from(attached_deposit),
-                "Insufficient deposit attached to cover storage, should be at least {}",
-                storage_usage
-            );
-
             Contract::refund_deposit_to_account(env::storage_usage() - storage_usage, id)
         }
 
-        Token { token_id, owner_id, metadata: token_metadata, approved_account_ids }
+        // get contract-level LookupMap of token_id to approvals HashMap
+        let approvals_by_id = self.tokens.approvals_by_id.as_mut().unwrap();
+
+        // update HashMap of approvals for this token
+        let approved_account_ids =
+            &mut approvals_by_id.get(&token_id).unwrap_or_else(|| HashMap::new());
+
+        let approval_id: u64 = self
+            .tokens
+            .next_approval_id_by_id
+            .as_ref()
+            .unwrap()
+            .get(&token_id)
+            .unwrap_or_else(|| 1u64);
+        approved_account_ids.insert(receiver_id.clone(), approval_id);
+
+        // save updated approvals HashMap to contract's LookupMap
+        approvals_by_id.insert(&token_id, &approved_account_ids);
+
+        // increment next_approval_id for this token
+        self.tokens.next_approval_id_by_id.as_mut().unwrap().insert(&token_id, &(approval_id + 1));
+
+        self.tokens.internal_transfer(&current_account_id, &receiver_id, &token_id, None, None);
     }
 }
 
@@ -151,4 +165,15 @@ impl NonFungibleTokenMetadataProvider for Contract {
     fn nft_metadata(&self) -> NFTContractMetadata {
         self.metadata.get().unwrap()
     }
+}
+
+#[ext_contract(ext_approval_receiver)]
+pub trait NonFungibleTokenReceiver {
+    fn nft_on_approve(
+        &mut self,
+        token_id: TokenId,
+        owner_id: AccountId,
+        approval_id: u64,
+        msg: String,
+    );
 }
